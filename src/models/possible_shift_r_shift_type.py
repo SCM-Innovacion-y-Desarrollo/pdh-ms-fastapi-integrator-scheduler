@@ -17,8 +17,8 @@ class PossibleShiftRShiftType(Base):
     sunday = Column(Boolean, nullable=True)
 
     # Foreign Keys
-    possible_shift_id = Column(BigInteger, ForeignKey("possible_shift.possible_shift_id"), nullable=False)
-    shift_type_id = Column(BigInteger, ForeignKey("shift_type.shift_type_id"), nullable=False)
+    possible_shift_id = Column(Integer, ForeignKey("possible_shift.possible_shift_id"), nullable=False)
+    shift_type_id = Column(Integer, ForeignKey("shift_type.shift_type_id"), nullable=False)
 
     
     # Relationships

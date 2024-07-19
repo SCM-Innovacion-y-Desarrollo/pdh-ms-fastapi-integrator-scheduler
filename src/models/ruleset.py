@@ -1,5 +1,5 @@
 from src.models.declarative_base import Base
-from sqlalchemy import BigInteger, Column, ForeignKey, DateTime, String, Integer, Boolean, Time
+from sqlalchemy import BigInteger, Column, ForeignKey, DateTime, String, Integer, Boolean, Time, Float
 from sqlalchemy.orm import relationship
 
 
@@ -10,11 +10,11 @@ class Ruleset(Base):
     ruleset_id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=False)
-    min_daily_hours = Column(Integer, nullable=False)
-    max_daily_hours = Column(Integer, nullable=False)
-    min_weekly_hours = Column(Integer, nullable=False)
-    max_weekly_hours = Column(Integer, nullable=False)
-    min_hours_between_shifts = Column(Integer, nullable=False)
+    min_daily_hours = Column(Float, nullable=False)
+    max_daily_hours = Column(Float, nullable=False)
+    min_weekly_hours = Column(Float, nullable=False)
+    max_weekly_hours = Column(Float, nullable=False)
+    min_hours_between_shifts = Column(Float, nullable=False)
     max_shift_segments_per_shift = Column(Integer, nullable=True)
     night_shift_start_time = Column(Time, nullable=True)
     night_shift_end_time = Column(Time, nullable=True)
@@ -27,7 +27,7 @@ class Ruleset(Base):
     is_active = Column(Boolean, nullable=False)
 
     # Foreign Keys
-    possible_shift_id = Column(BigInteger, ForeignKey("possible_shift.possible_shift_id"), nullable=False)
+    possible_shift_id = Column(Integer, ForeignKey("possible_shift.possible_shift_id"), nullable=False)
 
     
     # Relationships

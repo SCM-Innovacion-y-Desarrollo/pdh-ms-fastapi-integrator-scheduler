@@ -7,11 +7,11 @@ class ShiftType(Base):
     __tablename__ = "shift_type"
     
     # Fields
-    shift_type_id = Column(BigInteger, primary_key=True, autoincrement=True)
+    shift_type_id = Column(Integer, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     start_time = Column(Time, nullable=False)
     end_time = Column(Time, nullable=False)
-    duration = Column(Integer, nullable=False)
+    duration = Column(Time, nullable=False)
     
     # Relationships
     possible_shift_r_shift_types = relationship("PossibleShiftRShiftType", back_populates="shift_type")
