@@ -8,13 +8,14 @@ class PossibleShiftRShiftType(Base):
     
     # Fields
     possible_shift_r_shift_type_id = Column(BigInteger, primary_key=True, autoincrement=True)
-    monday = Column(Boolean, nullable=True)
-    tuesday = Column(Boolean, nullable=True)
-    wednesday = Column(Boolean, nullable=True)
-    thursday = Column(Boolean, nullable=True)
-    friday = Column(Boolean, nullable=True)
-    saturday = Column(Boolean, nullable=True)
-    sunday = Column(Boolean, nullable=True)
+    monday = Column(Boolean, nullable=False)
+    tuesday = Column(Boolean, nullable=False)
+    wednesday = Column(Boolean, nullable=False)
+    thursday = Column(Boolean, nullable=False)
+    friday = Column(Boolean, nullable=False)
+    saturday = Column(Boolean, nullable=False)
+    sunday = Column(Boolean, nullable=False)
+    break_period = Column(Integer, nullable=False)
 
     # Foreign Keys
     possible_shift_id = Column(Integer, ForeignKey("possible_shift.possible_shift_id"), nullable=False)

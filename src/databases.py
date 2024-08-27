@@ -3,7 +3,7 @@ from typing import AsyncGenerator
 from .config import config
 from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
 
-url: str = f"{config.DRIVER}://{config.DB_USER}:{config.DB_PASSWORD}@{config.HOST}:{config.PORT}/{config.NAME}?charset=utf8mb4"
+url: str = f"{config.DRIVER}://{config.DB_USER}:{config.DB_PASSWORD}@{config.HOST}:{config.PORT}/{config.NAME}"
 
 if config.CONN == "socket":
     url: str = "{}://{}:{}@/{}?unix_socket={}&charset=utf8mb4".format(
