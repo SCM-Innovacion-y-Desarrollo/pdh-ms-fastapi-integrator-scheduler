@@ -2,9 +2,9 @@ import sys
 from typing import List, TypeVar
 from sqlalchemy.orm.decl_api import DeclarativeMeta
 from sqlalchemy.orm import Session
-from src.schemas.schemas import InputModel
+from .schemas.schemas import InputModel
 from fastapi.encoders import jsonable_encoder
-from src.exceptions import NotFoundException
+from .exceptions import NotFoundException
 
 T = TypeVar('T')
 

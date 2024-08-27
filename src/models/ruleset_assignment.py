@@ -1,4 +1,4 @@
-from src.models.declarative_base import Base
+from ..models.declarative_base import Base
 from sqlalchemy import BigInteger, Column, ForeignKey, DateTime, String, Integer, Boolean, Time, Date
 from sqlalchemy.orm import relationship
 
