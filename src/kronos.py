@@ -1,14 +1,21 @@
 import os, requests
 from dataclasses import dataclass
 from datetime import datetime, timedelta, time
+from sqlalchemy import select, and_
+from sqlalchemy.ext.asyncio import AsyncSession
 from .repository import create
+from .schemas.ruleset import RuleSetModel
 from .schemas.availability import AvailabilityModel
 from .schemas.shift import ShiftModel
 from .schemas.possible_shift import PossibleShiftModel
+from .schemas.shift_type import ShiftTypeModel
+from .schemas.possible_shift_r_shift_type import PossibleShiftRShiftTypeModel
+from .models.ruleset import Ruleset
 from .models.availability import Availability
 from .models.shift import Shift
+from .models.shift_type import ShiftType
 from .models.possible_shift import PossibleShift
-from sqlalchemy.ext.asyncio import AsyncSession
+from .models.possible_shift_r_shift_type import PossibleShiftRShiftType
 
 
 @dataclass
@@ -162,4 +169,3 @@ class KronosShifts():
             return listt
         
         return False
-

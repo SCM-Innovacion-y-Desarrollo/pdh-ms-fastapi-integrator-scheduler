@@ -2,7 +2,7 @@ from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime, time
 
-class PossibleShiftModel(BaseModel):
+class PossibleShiftRShiftTypeModel(BaseModel):
     possible_shift_r_shift_type_id: Optional[int] = None
     monday: bool = False
     tuesday: bool = False
