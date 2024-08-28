@@ -13,5 +13,3 @@ class ShiftType(Base):
     end_time = Column(Time, nullable=False)
     duration = Column(Time, nullable=False)
     
-    # Relationships
-    possible_shift_r_shift_types = relationship("PossibleShiftRShiftType", back_populates="shift_type")

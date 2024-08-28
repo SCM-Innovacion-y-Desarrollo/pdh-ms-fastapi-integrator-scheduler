@@ -14,6 +14,3 @@ class RulesetAssignment(Base):
 
     # Foreign Keys
     ruleset_id = Column(Integer, ForeignKey("ruleset.ruleset_id"), nullable=False)
-    
-    # Relationships
-    ruleset = relationship("Ruleset", back_populates="ruleset_assignments")

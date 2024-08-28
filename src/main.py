@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends
-from .kronos import KronosAvailability, KronosShifts
+from .kronos import KronosAvailability, KronosShifts, KronosRuleSets
 from .schemas.schemas import BaseRequest
 from .databases import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +26,12 @@ async def loading_shifts(data: BaseRequest, db: AsyncSession = Depends(get_db)):
     kronos = KronosShifts()
     shifts = await kronos.get_shifts(data.person_nums, data.start_date, data.end_date, db)
     return shifts
+
+@app.post('/loading_rulesets', tags=["Rulesets"])
+async def loading_rulesets(db: AsyncSession = Depends(get_db)):
+    kronos = KronosRuleSets()
+    rulesets = await kronos.get_rulesets(db)
+    return rulesets
 
 
     
