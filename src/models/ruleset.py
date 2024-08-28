@@ -28,8 +28,3 @@ class Ruleset(Base):
 
     # Foreign Keys
     possible_shift_id = Column(Integer, ForeignKey("possible_shift.possible_shift_id"), nullable=False)
-
-    
-    # Relationships
-    possible_shift = relationship("PossibleShift", back_populates="rulesets")
-    ruleset_assignments = relationship("RulesetAssignment", back_populates="ruleset")

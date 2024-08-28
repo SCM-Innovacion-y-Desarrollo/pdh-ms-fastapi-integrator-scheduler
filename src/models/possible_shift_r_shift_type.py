@@ -20,8 +20,3 @@ class PossibleShiftRShiftType(Base):
     # Foreign Keys
     possible_shift_id = Column(Integer, ForeignKey("possible_shift.possible_shift_id"), nullable=False)
     shift_type_id = Column(Integer, ForeignKey("shift_type.shift_type_id"), nullable=False)
-
-    
-    # Relationships
-    possible_shift = relationship("PossibleShift", back_populates="possible_shift_r_shift_types")
-    shift_type = relationship("ShiftType", back_populates="possible_shift_r_shift_types")

@@ -10,7 +10,3 @@ class PossibleShift(Base):
     possible_shift_id = Column(BigInteger, primary_key=True, autoincrement=True)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
-    
-    # Relationships
-    rulesets = relationship("Ruleset", back_populates="possible_shift")
-    possible_shift_r_shift_types = relationship("PossibleShiftRShiftType", back_populates="possible_shift")
