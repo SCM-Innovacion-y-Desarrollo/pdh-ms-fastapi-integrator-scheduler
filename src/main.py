@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends
-from .kronos import KronosAvailability, KronosShifts, KronosRuleSets
-from .schemas.schemas import BaseRequest
+from .kronos import KronosAvailability, KronosShifts, KronosRuleSets, KronosForecast
+from .schemas.schemas import BaseRequest, ForecastRequest
 from .databases import get_db
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -31,6 +31,12 @@ async def loading_shifts(data: BaseRequest, db: AsyncSession = Depends(get_db)):
 async def loading_rulesets(db: AsyncSession = Depends(get_db)):
     kronos = KronosRuleSets()
     rulesets = await kronos.get_rulesets(db)
+    return rulesets
+
+@app.post('/loading_forecast', tags=["Forecast"])
+async def loading_forecast(data: ForecastRequest, db: AsyncSession = Depends(get_db)):
+    kronos = KronosForecast()
+    rulesets = await kronos.get_forecast(data.path,data.start_date, data.end_date, db)
     return rulesets
 
 

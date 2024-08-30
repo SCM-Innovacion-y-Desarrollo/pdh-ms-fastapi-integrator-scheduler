@@ -18,3 +18,8 @@ class BaseRequest(BaseModel):
     person_nums: dict[str, int]
     start_date: str
     end_date: str
+
+class ForecastRequest(BaseModel):
+    start_date: str
+    end_date: str
+    path: str

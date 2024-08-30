@@ -11,6 +11,7 @@ from .schemas.possible_shift import PossibleShiftModel
 from .schemas.shift_type import ShiftTypeModel
 from .schemas.possible_shift_r_shift_type import PossibleShiftRShiftTypeModel
 from .schemas.ruleset_assignment import RulesetAssignmentModel
+from .schemas.forecast import ForecastModel
 from .models.ruleset import Ruleset
 from .models.availability import Availability
 from .models.shift import Shift
@@ -18,6 +19,7 @@ from .models.shift_type import ShiftType
 from .models.possible_shift import PossibleShift
 from .models.possible_shift_r_shift_type import PossibleShiftRShiftType
 from .models.ruleset_assignment import RulesetAssignment
+from .models.forecast import Forecast
 
 
 @dataclass
@@ -326,5 +328,45 @@ class KronosRuleSets():
             await create(db, RulesetAssignment, rulesets_assignaments)
 
             return rulesets
-                    
 
+class KronosForecast():
+
+    url = str(os.getenv('DOMAIN_URL'))
+    company_slug = str(os.getenv('COMPANY_SLUG'))
+    token_company = str(os.getenv('TOKEN_COMPANY'))
+
+    async def get_forecast(self, path: str, start_date: str, end_date: str, db: AsyncSession):
+        
+        query_path = './' + '/'.join(path.split('/')[1:-1])
+
+        result = requests.post(
+            url = f'{self.url}/api/v1/kronos_wfc/scheduler/forecast',
+            json = {
+                'start_date': start_date,
+                'end_date': end_date,
+                'orgpaths': [query_path]
+            },
+            headers = {
+                'Authorization': f'Bearer {self.token_company}',
+                'company': self.company_slug,
+                'Content-Type': 'application/json'
+            }
+        )
+
+        forecasts = result.json()['data']
+        if forecasts:
+            forecasts = [forecast for forecast in forecasts if forecast['orpath'] == path]
+            ftoupload = []
+            for f in forecasts:
+
+                dtime = datetime.strptime(f"{f['date']} {f['start']}", '%Y-%m-%d %H:%M')
+                fore = {
+                    'value': int(f['head_count']),
+                    'date': dtime,
+                    'path': f['orpath']
+                }
+
+                ftoupload.append(fore)
+            forecast = [ForecastModel(**item) for item in ftoupload]
+            forecast = await create(db, Forecast, forecast)
+            return forecast
