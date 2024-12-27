@@ -1,35 +1,14 @@
 import sys
 from typing import List, TypeVar
+from sqlalchemy import select
 from sqlalchemy.orm.decl_api import DeclarativeMeta
+from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import Session
 from .schemas.schemas import InputModel
 from fastapi.encoders import jsonable_encoder
 from .exceptions import NotFoundException
 
 T = TypeVar('T')
-
-def get_all(db: Session, model: DeclarativeMeta, **kwargs) -> List[T]:
-    """ Get all elements from a table with filters"""
-    query = db.query(model)
-    if "between" in kwargs:
-        query = query.filter(kwargs["between"][0].between(kwargs["between"][1], kwargs["between"][2]))
-        del kwargs["between"]
-    if "in_" in kwargs:
-        query = query.filter(kwargs["in_"][0].in_(kwargs["in_"][1]))
-        del kwargs["in_"]
-    if "filter" in kwargs:
-        query = kwargs["filter"].filter(query)
-        query = kwargs["filter"].sort(query)
-        del kwargs["filter"]
-    hasattr(model, "enable")
-    if hasattr(model, "enable") and "active" not in kwargs:
-        query = query.filter(model.enable == True)
-    elif hasattr(model, "enable") and "active" in kwargs:
-        query = query.filter(model.enable == kwargs["active"])
-        del kwargs["active"]
-    if kwargs:
-        query = query.filter_by(**kwargs)
-    return query.all()
 
 def get_by_id(db: Session, model: DeclarativeMeta, id: int, **kwargs) -> T:
     """ Get element by id with filters"""
@@ -97,3 +76,18 @@ def delete_relations(db: Session, model: DeclarativeMeta, **kwargs) -> T:
         db.commit()
 
     return data
+
+async def bulk_qry(db: AsyncSession, model: DeclarativeMeta, data1: list, ask_column: str, data2: list = None, ask_column_2: str = None):
+    if ask_column_2:
+        qry = select(model).where(getattr(model, ask_column).in_(data1), getattr(model, ask_column_2).in_(data2))
+        return await db.execute(qry)
+    else:
+        qry = select(model).where(getattr(model, ask_column).in_(data1))
+        return await db.execute(qry)
+
+async def get_all(db: AsyncSession, model: DeclarativeMeta):
+    result = await db.execute(select(model))
+    return result.unique().scalars().all()
+
+def model_to_dict(model_instance):
+    return {column.name: getattr(model_instance, column.name) for column in model_instance.__table__.columns}

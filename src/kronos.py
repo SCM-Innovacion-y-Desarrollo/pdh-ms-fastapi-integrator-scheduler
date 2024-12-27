@@ -1,9 +1,10 @@
 import os, requests
+import pandas as pd
 from dataclasses import dataclass
 from datetime import datetime, timedelta, time
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
-from .repository import create, flush
+from .repository import create, bulk_qry, get_all, model_to_dict
 from .schemas.ruleset import RuleSetModel
 from .schemas.availability import AvailabilityModel
 from .schemas.shift import ShiftModel
@@ -224,8 +225,16 @@ class KronosRuleSets():
 
                     shift_profile = {'name': rule['shift_profile_set']['name'], 'description': rule['shift_profile_set']['description']}
                     
-                    possible_shift = PossibleShiftModel(**shift_profile)
-                    possible_shift = await create(db, PossibleShift, [possible_shift])
+                    poss_shf_qry = select(PossibleShift).where(
+                        PossibleShift.name == shift_profile['name'], 
+                        PossibleShift.description == shift_profile['description']
+                    )
+                    poss_shf_qry = await db.execute(poss_shf_qry)
+                    possible_shift = poss_shf_qry.first()
+
+                    if not possible_shift:
+                        possible_shift = PossibleShiftModel(**shift_profile)
+                        possible_shift = await create(db, PossibleShift, [possible_shift])
 
                     rul['possible_shift_id'] = int(possible_shift[0].possible_shift_id)
 
@@ -240,14 +249,17 @@ class KronosRuleSets():
                             start.append(time(hour=int(shifts['properties']['max_start_time'].split(':')[0]), minute = int(shifts['properties']['max_start_time'].split(':')[1])))
                             end.append(time(hour=int(shifts['properties']['max_end_time'].split(':')[0]), minute = int(shifts['properties']['max_end_time'].split(':')[1])))
                             duration.append(time(hour=int(shifts['properties']['max_duration'].split(':')[0]), minute = int(shifts['properties']['max_duration'].split(':')[1])))
-                    
-                        shift_type_ids = select(ShiftType.shift_type_id).where(
+                        
+                        combined_conditions = [
                             and_(
-                                ShiftType.start_time.in_(start),
-                                ShiftType.end_time.in_(end),
-                                ShiftType.duration.in_(duration)
+                                ShiftType.start_time == s,
+                                ShiftType.end_time == e,
+                                ShiftType.duration == d
                             )
-                        )
+                            for s, e, d in zip(start, end, duration)
+                        ]
+
+                        shift_type_ids = select(ShiftType.shift_type_id).where(or_(*combined_conditions))
 
                         shift_type_ids = await db.execute(shift_type_ids)
                         shift_type_ids = shift_type_ids.scalars().all()
@@ -258,76 +270,104 @@ class KronosRuleSets():
                                 'shift_type_id': shift_type_id,
                                 f'{day}': True,
                             }
-                            pssbl_shft_r_shft_typ.append(PossibleShiftRShiftTypeModel(**value))
+                            pssbl_shft_r_shft_typ.append(PossibleShiftRShiftTypeModel(**value).model_dump())
                     
+                    pssbl_shft_r_shft_typ_df = pd.DataFrame(pssbl_shft_r_shft_typ)
+                    pssbl_shft_r_shft_typ_df = pssbl_shft_r_shft_typ_df.drop(columns=['possible_shift_r_shift_type_id'])
+                    pssbl_shft_r_shft_typ = pssbl_shft_r_shft_typ_df.groupby(['possible_shift_id', 'shift_type_id']).agg('any').reset_index().to_dict('records')
+
+                    pssbl_shft_r_shft_typ_in_db = await bulk_qry(db, PossibleShiftRShiftType, [p['possible_shift_id'] for p in pssbl_shft_r_shft_typ], 'possible_shift_id', [p['shift_type_id'] for p in pssbl_shft_r_shft_typ], 'shift_type_id')
+                    pssbl_shft_r_shft_typ_in_db = [model_to_dict(item) for item in pssbl_shft_r_shft_typ_in_db.unique().scalars().all()]
+
+                    for ps_r_st in pssbl_shft_r_shft_typ.copy():
+                        for i in pssbl_shft_r_shft_typ_in_db:
+                            if ps_r_st.get('possible_shift_id') == i.get('possible_shift_id') and ps_r_st.get('shift_type_id') == i.get('shift_type_id'):
+                                pssbl_shft_r_shft_typ.remove(ps_r_st) if ps_r_st in pssbl_shft_r_shft_typ else None
+                    
+                    pssbl_shft_r_shft_typ = [PossibleShiftRShiftTypeModel(**item) for item in pssbl_shft_r_shft_typ]
                     await create(db, PossibleShiftRShiftType, pssbl_shft_r_shft_typ)
                     rulesets.append(rul)
+            
+            rulsets_in_db = await bulk_qry(db, Ruleset, [r['name'] for r in rulesets], 'name')
+            rulsets_in_db = [model_to_dict(item) for item in rulsets_in_db.unique().scalars().all()]
+
+            for rul in rulesets.copy():
+                for i in rulsets_in_db:
+                    if rul.get('name') == i.get('name'):
+                        rulesets.remove(rul) if rul in rulesets else None
+            
+            if rulesets:
                     
-            rulesets = [RuleSetModel(**item) for item in rulesets]
-            rulesets = await create(db, Ruleset, rulesets)
+                rulesets = [RuleSetModel(**item) for item in rulesets]
+                rulesets = await create(db, Ruleset, rulesets)
 
-            # ask for assignament of the rulesets to the employees
+                # ask for assignament of the rulesets to the employees
 
-            assingments = requests.post(
-                url = f'{self.url}/api/v1/kronos_wfc/scheduler/schedule_rules_assignments',
-                json = {
-                    'start_date': datetime.now().strftime('%Y-%m-%d'),
-                    'end_date': datetime.now().strftime('%Y-%m-%d'),
-                    'person_numbers': ['*']
-                },
-                headers = {
-                    'Authorization': f'Bearer {self.token_company}',
-                    'company': self.company_slug,
-                    'Content-Type': 'application/json'
-                }
-            )
+                assingments = requests.post(
+                    url = f'{self.url}/api/v1/kronos_wfc/scheduler/schedule_rules_assignments',
+                    json = {
+                        'start_date': datetime.now().strftime('%Y-%m-%d'),
+                        'end_date': datetime.now().strftime('%Y-%m-%d'),
+                        'person_numbers': ['*']
+                    },
+                    headers = {
+                        'Authorization': f'Bearer {self.token_company}',
+                        'company': self.company_slug,
+                        'Content-Type': 'application/json'
+                    }
+                )
 
-            document_employees = []
-            ruleset_names = []
+                document_employees = []
+                ruleset_names = []
 
-            for docum, data in assingments.json()['data'].items():
-                document_employees.append(docum)
-                for rule in data:
-                    ruleset_names.append(rule['rule_name'])
-            
-            ruleset_ids = select(Ruleset.ruleset_id).where(Ruleset.name.in_(ruleset_names))
-            ruleset_ids = await db.execute(ruleset_ids)
-            ruleset_ids = ruleset_ids.scalars().all()
-
-            rulesetss = {}
-
-            for rule_name, ruleset_id in zip(ruleset_names, ruleset_ids):
-                rulesetss[rule_name] = ruleset_id
-
-            employees_integrations = os.getenv('EMPLOYEE_URL')
-
-            employees_ids = requests.post(
-                url = f'{employees_integrations}/get_employees_ids/by_document_employee',
-                json = document_employees
-            )
-
-            document_employee_r_employee_id = employees_ids.json()
-
-            rulesets_assignaments = []
-
-            for document_employee, data in assingments.json()['data'].items():
-                if document_employee in document_employee_r_employee_id:
+                for docum, data in assingments.json()['data'].items():
+                    document_employees.append(docum)
                     for rule in data:
-                        if rule['rule_name'] in rulesets:
-                            assingament = {
-                                'employee_id': document_employee_r_employee_id[document_employee],
-                                'ruleset_id': rulesetss[rule['rule_name']],
-                                'start_date': datetime.strptime(rule['effective_date'], '%Y-%m-%d'),
-                                'end_date': datetime.strptime(rule['expiration_date'], '%Y-%m-%d'),
-                                'last_modified': datetime.now().strftime('%Y-%m-%d'),
-                            }
+                        ruleset_names.append(rule['rule_name'])
+                
+                ruleset_names = sorted(set(ruleset_names))
+                ruleset_ids = select(Ruleset.ruleset_id).where(Ruleset.name.in_(ruleset_names)).order_by(Ruleset.name)
+                ruleset_ids = await db.execute(ruleset_ids)
+                ruleset_ids = ruleset_ids.scalars().all()
 
-                            rulesets_assignaments.append(assingament)
+                rulesetss = {}
+
+                for rule_name, ruleset_id in zip(ruleset_names, ruleset_ids):
+                    rulesetss[rule_name] = ruleset_id
+
+                employees_integrations = os.getenv('EMPLOYEE_URL')
+
+                employees_ids = requests.post(
+                    url = f'{employees_integrations}/get_employees_ids/by_document_employee',
+                    json = document_employees
+                )
+
+                document_employee_r_employee_id = employees_ids.json()
+
+                rulesets_assignaments = []
+
+                rulesets_names = [r for r in rulesetss.keys()]
+
+                for document_employee, data in assingments.json()['data'].items():
+                    if document_employee in document_employee_r_employee_id:
+                        for rule in data:
+                            if rule['rule_name'] in rulesets_names:
+                                assingament = {
+                                    'employee_id': document_employee_r_employee_id[document_employee],
+                                    'ruleset_id': rulesetss[rule['rule_name']],
+                                    'start_date': datetime.strptime(rule['effective_date'], '%Y-%m-%d'),
+                                    'end_date': datetime.strptime(rule['expiration_date'], '%Y-%m-%d'),
+                                    'last_modified': datetime.now().strftime('%Y-%m-%d'),
+                                }
+
+                                rulesets_assignaments.append(assingament)
+                
+                rulesets_assignaments = [RulesetAssignmentModel(**item) for item in rulesets_assignaments]
+                await create(db, RulesetAssignment, rulesets_assignaments)
+
+                return rulesets
             
-            rulesets_assignaments = [RulesetAssignmentModel(**item) for item in rulesets_assignaments]
-            await create(db, RulesetAssignment, rulesets_assignaments)
-
-            return rulesets
+            return 'there are no new rulesets to insert and assign'
 
 class KronosForecast():
 
